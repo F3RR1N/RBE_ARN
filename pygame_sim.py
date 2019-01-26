@@ -5,6 +5,10 @@ Ryan Ferrin
 2019/01/27
 Simple Reactive navigation:
 This code is a simulation of a "roomba" style robot that only changes direction when it encounters an obstacle.
+the code displays the current absolute position, absolute orientation in degrees, relative translation, 
+and relative rotation on the bottom of the screen. The Robot path trace can be toggled on and off by changing 
+trace to True or False. The position data is saved to a text file 'ARN_HW1.txt'
+python version 3.6.7
 
 """
 
@@ -13,6 +17,7 @@ import pygame
 import math
 import numpy
 import random
+
 
 white = (255, 255, 255)
 black = (0, 0, 0)
@@ -69,8 +74,6 @@ def collision_detect(bot_rad, bot_pos, bot_angle, obs_loc):
         if (c_x, c_y) in obs_loc:
             return True
         i = i - math.pi / 6
-        if i <= 0:
-            i = 2 * math.pi
     return False
 
 
@@ -84,8 +87,6 @@ def obs_detect(bot_rad, bot_pos, bot_angle, obs_loc):
         if (sen_loc_x, sen_loc_y) in obs_loc:
             return True
         i = i - math.pi / 4
-        if i <= 0:
-            i = 2 * math.pi
     return False
 
 # function to find open paths"
@@ -93,7 +94,7 @@ def scan_area(bot_rad, scan_rad, bot_pos, bot_angle, obs_loc):
     a = bot_angle - math.pi / 4
     b = bot_angle + math.pi / 4
     free = []
-    for x in range(0, 3):
+    for x in range(0, 2):
         sen_xa = int(bot_pos[0] + (bot_rad + scan_rad) * math.cos(a))
         sen_ya = int(bot_pos[1] + (bot_rad + scan_rad) * math.sin(a))
         sen_xb = int(bot_pos[0] + (bot_rad + scan_rad) * math.cos(b))
@@ -103,11 +104,8 @@ def scan_area(bot_rad, scan_rad, bot_pos, bot_angle, obs_loc):
         if (sen_xb, sen_yb) not in obs_loc:
             free.append(b)
         a = a - math.pi / 4
-        b = b - math.pi / 4
-        if b >= 2 * math.pi:
-            b = 2 * math.pi
-        if a <= 0:
-            a = 0
+        b = b + math.pi / 4
+
     if len(free) == 0:
         free.append(bot_angle - math.pi)
     if len(free) == 1:
@@ -128,14 +126,16 @@ def main(bot_rad, bot_pos, bot_angle, obs_loc, bot_lend):
     pygame.display.set_caption('Roomba Sim')
     background = pygame.image.load("Obs_hw1.png")
     screen.blit(background, (0, 0))
-    pygame.draw.circle(screen, blue, bot_pos, bot_rad, 10)
+    pygame.draw.circle(screen, red, bot_pos, bot_rad, 10)
     pygame.draw.line(screen, green, bot_pos, bot_lend, 4)
     font = pygame.font.SysFont("monospace", 16)
     traker = pygame.Surface((columns, 50))
     screen.blit(traker, (0, rows+1))
     pygame.display.update()
 
-    trace = True
+    file = open('ARN_HW1.txt', 'w')
+
+    trace = False
     running = True
     rotation = 0
     while running:
@@ -152,16 +152,23 @@ def main(bot_rad, bot_pos, bot_angle, obs_loc, bot_lend):
             translation = numpy.subtract(bot_pos, pos_prior)
             ang_prior = bot_angle
             bot_angle = scan_area(bot_rad, scan_rad, bot_pos, bot_angle, obs_loc)
-            rotation = bot_angle -ang_prior
+            if bot_angle > 2 * math .pi:
+                bot_angle = bot_angle - 2 * math.pi
+            if bot_angle < 0:
+                bot_angle = 2 * math.pi + bot_angle
+            rotation = bot_angle - ang_prior
         else:
             obs = obs_detect(bot_rad, bot_pos, bot_angle, obs_loc)
             if obs:
                 print("obstacle")
                 ang_prior = bot_angle
                 bot_angle = scan_area(bot_rad, scan_rad, bot_pos, bot_angle, obs_loc)
+                if bot_angle > 2 * math.pi:
+                    bot_angle = bot_angle - 2 * math.pi
+                if bot_angle < 0:
+                    bot_angle = 2 * math.pi + bot_angle
                 rotation = bot_angle - ang_prior
-                if bot_angle <= 0:
-                    bot_angle = 2 * math.pi
+
             else:
                 pos_prior = bot_pos
                 bot_pos_x = int(bot_pos[0] + bot_move * math.cos(bot_angle))
@@ -176,14 +183,19 @@ def main(bot_rad, bot_pos, bot_angle, obs_loc, bot_lend):
         pygame.draw.line(screen, blue, bot_pos, bot_lend, 4)
         screen.blit(traker, (0, rows + 1))
         pos_text = font.render("Position " + str(bot_pos), True, yellow)
-        ang_text = font.render("Orientation " + str(bot_angle), True, yellow)
+        ang_text = font.render("Orientation " + str(bot_angle * 180 / math.pi), True, yellow)
         trnl_text = font.render("Translation " + str(translation), True, yellow)
-        rot_text = font.render("Rotation " + str(rotation), True, yellow)
+        rot_text = font.render("Rotation " + str(rotation * 180 / math.pi), True, yellow)
         screen.blit(pos_text, (0, rows + pos_text.get_height() // 2))
         screen.blit(ang_text, (0, rows + pos_text.get_height() + 4))
         screen.blit(trnl_text, (columns / 2, rows + pos_text.get_height() // 2))
         screen.blit(rot_text, (columns / 2, rows + pos_text.get_height() + 4))
+
+        # write data to file.
         print("postion ", bot_pos, "angle ", bot_angle)
+        file = open('ARN_HW1.txt', 'a')
+        file.write("Position " + repr(bot_pos) + " Translation " + repr(translation) + " Orientation " + repr(bot_angle * 180 / math.pi) + " Rotation " + repr(rotation * 180 / math.pi) + '\n')
+        file.close()
         pygame.display.update()
 
 
